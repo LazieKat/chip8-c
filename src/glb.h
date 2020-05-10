@@ -44,7 +44,7 @@ struct
 	uint8_t K, DT, ST;
 	uint16_t I, PC, SP;
 	int rom_size;
-	uint16_t stack[16];
+	uint16_t stack[32];
 }machine;
 
 struct db

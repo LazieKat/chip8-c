@@ -17,7 +17,7 @@ void call(uint16_t adr)
 	//	2nnn	call	$0xNNN
 	machine.stack[machine.SP] = machine.PC;
 	machine.PC = adr-2;
-	if(--machine.SP == -1) machine.SP = 15;
+	if(--machine.SP == -1) machine.SP = 31;
 }
 
 void display_clear()
@@ -95,7 +95,7 @@ void flow_jmp(enum mode m, uint16_t adr)
 void flow_return_subroutine()
 {
 	//	00ee	rts
-	if(++machine.SP == 16) machine.SP = 0;
+	if(++machine.SP == 32) machine.SP = 0;
 	machine.PC = machine.stack[machine.SP]-2;
 }
 
@@ -121,14 +121,14 @@ void bitwise_shift_right(uint8_t x)
 {
 	//	8xy6	shr		@VX
 	machine.V[0xf] = (machine.V[x] & 0x80) >> 7;
-	machine.V[x] <<= 1;
+	machine.V[x] >>= 1;
 }
 
 void bitwise_shift_left(uint8_t x)
 {
 	//	8xye	shl		@VX
 	machine.V[0xf] = machine.V[x] & 0x1;
-	machine.V[x] >>= 1;
+	machine.V[x] <<= 1;
 }
 
 void math_add(uint8_t x, uint8_t y, enum mode m)
@@ -212,7 +212,7 @@ void data_move(uint8_t d, uint16_t s, enum mode m)
 			machine.ST = machine.V[s];
 			break;
 		case iadr_regval:
-			machine.I = s*5;
+			machine.I = machine.V[s]*5;
 			break;
 		case iarr_regval:
 			machine.mem[machine.I] = machine.V[s] / 100;
