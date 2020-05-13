@@ -1,5 +1,7 @@
 # CHIP-8 Emularor
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/b31e7b68cf32421b8e6aeefe971825c6)](https://app.codacy.com/manual/LazieKat/chip8-c?utm_source=github.com&utm_medium=referral&utm_content=LazieKat/chip8-c&utm_campaign=Badge_Grade_Dashboard)
+
 According to wikipedia "CHIP-8 is an interpreted programming language
 that runs in a virtual machine. It was initially used on the COSMAC VIP and 
 Telmac 1800 8-bit microcomputers in the mid-1970s. 
