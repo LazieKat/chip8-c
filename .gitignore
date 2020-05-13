@@ -1,5 +1,10 @@
 .idea
 .vscode
 cmake-build-debug
+
 src/a.exe
 src/a.out
+src/.vscode
+
+old/a.exe
+old/a.out

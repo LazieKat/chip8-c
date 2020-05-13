@@ -62,6 +62,7 @@ void init(enum mode m)
 {
 	machine.PC = 512;
 	machine.SP = 15;
+	machine.I = 0;
 
     for(int i = 0; i < 80; i++)
         machine.mem[i] = font[i];
