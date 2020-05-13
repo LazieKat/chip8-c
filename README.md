@@ -8,7 +8,7 @@ Telmac 1800 8-bit microcomputers in the mid-1970s.
 It was made to allow video games to be more easily programmed for these 
 computers. 
 
-## What is this repo?
+## What is this repo
 
 A friend of mine told me about CHIP-8 and I found it rather simple 
 so I attempted to write an emulator as a practice and for fun, but as it
