@@ -25,7 +25,7 @@ void display_clear()
 	//	00e0	cls
 	for(int i = 0; i < DISP_H; i++) 
 		for(int j = 0; j < DISP_W; j++)
-			machine.display[i][j] = 0;
+			machine.display[j][i] = 0;
 }
 
 void display_draw(uint8_t x, uint8_t y, uint8_t h) // 0 1 8

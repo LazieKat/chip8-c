@@ -3,6 +3,10 @@
 #include <iostream>
 #include <string>
 #include <iomanip>
+#include <ctime>
+#include <thread>
+#include <unistd.h>
+#include <cstdlib>
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
 #include <SFML/Audio.hpp>
@@ -24,6 +28,8 @@ typedef struct // cpu registers, memory and counters
 
 	uint8_t display[64][32];
 
+	uint8_t K[16];
+
 	int rom_size;
 }cpu;
 
@@ -31,10 +37,10 @@ typedef union // opcode with flags for each word
 {
 	struct
 	{
-		uint8_t q : 4;
-		uint8_t w : 4;
-		uint8_t e : 4;
 		uint8_t r : 4;
+		uint8_t y : 4;
+		uint8_t x : 4;
+		uint8_t l : 4;
 	}b;
 
 	uint16_t nnn : 12;
@@ -57,6 +63,8 @@ typedef struct
 	sf::Text stack_vals;
 	sf::Text reg_title;
 	sf::Text reg_vals[16];
+	sf::Text key_title;
+	sf::Text key_vals[16];
 	sf::Text I;
 	sf::Text ST;
 	sf::Text DT;
@@ -65,84 +73,9 @@ typedef struct
 	std::stringstream sv;
 }txt;
 
+//sf::Vector2i px(32, 16);
+
 ////	functions
-void init(cpu *m, win *mw, txt *ot)
-{
-	////	CPU init
-	uint16_t font[80] =
-	{
-		0xf0, 0x90, 0x90, 0x90, 0xf0,
-		0x20, 0x60, 0x20, 0x20, 0x70,
-		0xf0, 0x10, 0xf0, 0x80, 0xf0,
-		0xf0, 0x10, 0xf0, 0x10, 0xf0,
-		0x90, 0x90, 0xf0, 0x10, 0x10,
-		0xf0, 0x80, 0xf0, 0x10, 0xf0,
-		0xf0, 0x80, 0xf0, 0x90, 0xf0,
-		0xf0, 0x10, 0x20, 0x40, 0x40,
-		0xf0, 0x90, 0xf0, 0x90, 0xf0,
-		0xf0, 0x90, 0xf0, 0x10, 0xf0,
-		0xf0, 0x90, 0xf0, 0x90, 0x90,
-		0xe0, 0x90, 0xe0, 0x90, 0xe0,
-		0xf0, 0x80, 0x80, 0x80, 0xf0,
-		0xe0, 0x90, 0x90, 0x90, 0xe0,
-		0xf0, 0x80, 0xf0, 0x80, 0xf0,
-		0xf0, 0x80, 0xf0, 0x80, 0x80
-	};
-
-	for(int i = 0; i < 16; i++)
-		m->V[i] = 0;
-	
-	for(int i = 0; i < 80; i++)
-		m->mem[i] = font[i];
-
-	m->PC = 512;
-	m->I = 0;
-
-	for(int i = 0; i < 16; i++)
-		m->stack[i] = 0;
-
-	m->SP = 15;
-
-	m->DT = 0;
-	m->ST = 0;
-
-	for(int j = 0; j < 32; j++)
-		for(int i = 0; i < 64; i++)
-			m->display[i][j] = 0;
-
-	////	Window init
-	mw->window.create(sf::VideoMode(640, 640), "CHIP-8", sf::Style::Close);
-	mw->window.setFramerateLimit(60);
-
-	mw->bg = sf::RectangleShape(sf::Vector2f(640, 320));
-	mw->bg.setFillColor(sf::Color::Black);
-	mw->bg.setPosition(sf::Vector2f(0,0));
-	
-	mw->currentSP = sf::RectangleShape(sf::Vector2f(61, 18));
-	mw->currentSP.setFillColor(sf::Color(53, 81, 117));
-
-	for(int i = 0; i < 64*32; i++)
-		mw->pixel[i] = sf::RectangleShape(sf::Vector2f(10, 10));
-
-
-	////	Textual objects init
-	ot->fnt.loadFromFile("font.ttf");
-	ot->stack_vals = sf::Text("", ot->fnt, 18);
-	ot->reg_title = sf::Text("V0\tV1\tV2\tV3\tV4\tV5\n\n\n\nV6\tV7\tV8\tV9\tVA\tVB\n\n\n\nVC\tVD\tVE\tVF\n\n\n\nI\t   DT\tST\tPC\tSP", ot->fnt, 20);
-	ot-> I = sf::Text("", ot->fnt, 20);
-	ot-> ST = sf::Text("", ot->fnt, 20);
-	ot->DT = sf::Text("", ot->fnt, 20);
-	ot->SP = sf::Text("", ot->fnt, 20);
-	ot->PC = sf::Text("", ot->fnt, 20);
-	ot->stack_vals.setPosition(sf::Vector2f(550, 332));
-	ot->reg_title.setPosition(sf::Vector2f(300, 332));
-	for(int i = 0; i < 16; i++)
-		ot->reg_vals[i] = sf::Text("", ot->fnt, 20);
-
-
-	////	General
-	sf::err().rdbuf(NULL);
-}
 
 void openRom(cpu *m, char *p)
 {
@@ -168,95 +101,146 @@ void pollEvents(win *mw, cpu *m)
 			case sf::Event::Closed:
 				mw->window.close();
 				break;
-
 			case sf::Event::KeyPressed:
 				switch(evt.key.code)
 				{
 					case sf::Keyboard::Num1:
 						std::cout << "1" << std::endl;
+						m->K[1] = 1;
 						break;
 					case sf::Keyboard::Num2:
 						std::cout << "2" << std::endl;
+						m->K[2] = 1;
 						break;
 					case sf::Keyboard::Num3:
 						std::cout << "3" << std::endl;
+						m->K[3] = 1;
 						break;
 					case sf::Keyboard::Num4:
 						std::cout << "C" << std::endl;
+						m->K[0xc] = 1;
 						break;
 					case sf::Keyboard::Q:
 						std::cout << "4" << std::endl;
-						m->SP--;
+						m->K[4] = 1;
 						break;
 					case sf::Keyboard::W:
 						std::cout << "5" << std::endl;
-						sz.y++;
+						m->K[5] = 1;
 						break;
 					case sf::Keyboard::E:
 						std::cout << "6" << std::endl;
-						m->SP++;
+						m->K[6] = 1;
 						break;
 					case sf::Keyboard::R:
 						std::cout << "D" << std::endl;
+						m->K[0xd] = 1;
 						break;
 					case sf::Keyboard::A:
 						std::cout << "7" << std::endl;
-						sz.x--;
+						m->K[7] = 1;
 						break;
 					case sf::Keyboard::S:
 						std::cout << "8" << std::endl;
-						sz.y--;
+						m->K[8] = 1;
 						break;
 					case sf::Keyboard::D:
 						std::cout << "9" << std::endl;
-						sz.x++;
+						m->K[9] = 1;
 						break;
 					case sf::Keyboard::F:
 						std::cout << "E" << std::endl;
+						m->K[0xe] = 1;
 						break;
 					case sf::Keyboard::Z:
 						std::cout << "A" << std::endl;
+						m->K[0xa] = 1;
 						break;
 					case sf::Keyboard::X:
 						std::cout << "0" << std::endl;
+						m->K[0] = 1;
 						break;
 					case sf::Keyboard::C:
 						std::cout << "B" << std::endl;
+						m->K[0xb] = 1;
 						break;
 					case sf::Keyboard::V:
 						std::cout << "F" << std::endl;
-						break;
-					case sf::Keyboard::Up:
-						tp.y--;
-						break;
-					case sf::Keyboard::Down:
-						tp.y++;
-						break;
-					case sf::Keyboard::Left:
-						tp.x--;
-						break;
-					case sf::Keyboard::Right:
-						tp.x++;
-						break;
-
-					case sf::Keyboard::I:
-						px.y--;
-						m->display[px.x][px.y] = !m->display[px.x][px.y];
-						break;
-					case sf::Keyboard::K:
-						px.y++;
-						m->display[px.x][px.y] = !m->display[px.x][px.y];
-						break;
-					case sf::Keyboard::L:
-						px.x++;
-						m->display[px.x][px.y] = !m->display[px.x][px.y];
-						break;
-					case sf::Keyboard::J:
-						px.x--;
-						m->display[px.x][px.y] = !m->display[px.x][px.y];
+						m->K[0xf] = 1;
 						break;
 				}
-
+				break;
+			case sf::Event::KeyReleased:
+				switch(evt.key.code)
+				{
+					case sf::Keyboard::Num1:
+						std::cout << "1" << std::endl;
+						m->K[1] = 0;
+						break;
+					case sf::Keyboard::Num2:
+						std::cout << "2" << std::endl;
+						m->K[2] = 0;
+						break;
+					case sf::Keyboard::Num3:
+						std::cout << "3" << std::endl;
+						m->K[3] = 0;
+						break;
+					case sf::Keyboard::Num4:
+						std::cout << "C" << std::endl;
+						m->K[0xc] = 0;
+						break;
+					case sf::Keyboard::Q:
+						std::cout << "4" << std::endl;
+						m->K[4] = 0;
+						break;
+					case sf::Keyboard::W:
+						std::cout << "5" << std::endl;
+						m->K[5] = 0;
+						break;
+					case sf::Keyboard::E:
+						std::cout << "6" << std::endl;
+						m->K[6] = 0;
+						break;
+					case sf::Keyboard::R:
+						std::cout << "D" << std::endl;
+						m->K[0xd] = 0;
+						break;
+					case sf::Keyboard::A:
+						std::cout << "7" << std::endl;
+						m->K[7] = 0;
+						break;
+					case sf::Keyboard::S:
+						std::cout << "8" << std::endl;
+						m->K[8] = 0;
+						break;
+					case sf::Keyboard::D:
+						std::cout << "9" << std::endl;
+						m->K[9] = 0;
+						break;
+					case sf::Keyboard::F:
+						std::cout << "E" << std::endl;
+						m->K[0xe] = 0;
+						break;
+					case sf::Keyboard::Z:
+						std::cout << "A" << std::endl;
+						m->K[0xa] = 0;
+						break;
+					case sf::Keyboard::X:
+						std::cout << "0" << std::endl;
+						m->K[0] = 0;
+						break;
+					case sf::Keyboard::C:
+						std::cout << "B" << std::endl;
+						m->K[0xb] = 0;
+						break;
+					case sf::Keyboard::V:
+						std::cout << "F" << std::endl;
+						m->K[0xf] = 0;
+						break;
+				}
+				break;
+			case sf::Event::TextEntered:
+				break;
 			default:
 				break;
 		}
@@ -301,16 +285,31 @@ void updateObjects(cpu *m, win *mw, txt *ot)
 		}
 	}
 
+	// key values
+	for(int j = 0; j < 3; j++)
+	{
+		for(int i = 0; i < 6; i++)
+		{
+			if(j == 2 && i > 3) 
+				break;
+
+			ot->key_vals[i+j*6].setString(intToHex(m->K[i+j*6], false));
+			ot->key_vals[i+j*6].setPosition(sf::Vector2f(40+i*40, 360+j*78));
+		}
+	}
+
 	// index register
-	ot->I .setString(intToHex(m->I, false));
+	ot->I.setString(intToHex(m->I, false));
 	ot->I.setPosition(sf::Vector2f(300 , 594));
 
 	// sound timer
-	ot->ST.setString(intToHex(m->ST, false));
+	//ot->ST.setString(intToHex(m->ST, false));
+	ot->ST.setString(std::to_string(m->ST));
 	ot->ST.setPosition(sf::Vector2f(340 ,594));
 
 	// delay timer
-	ot->DT.setString(intToHex(m->DT, false));
+	//ot->DT.setString(intToHex(m->DT, false));
+	ot->DT.setString(std::to_string(m->DT));
 	ot->DT.setPosition(sf::Vector2f(380 ,594));
 
 	// stack pointer
@@ -322,24 +321,24 @@ void updateObjects(cpu *m, win *mw, txt *ot)
 	ot->PC.setPosition(sf::Vector2f(460 ,594));
 
 	// actual chip-8 display
+	/*
 	for(int j = 0; j < 32; j++)
 	{
 		for(int i = 0; i < 64; i++)
 		{
-			mw->pixel[i+j*64].setPosition(sf::Vector2f(i*10, j*10));
 			if(m->display[i][j])
 				mw->pixel[i+j*64].setFillColor(sf::Color::White);
 			else
 				mw->pixel[i+j*64].setFillColor(sf::Color::Black);
 		}
 	}
+	*/
 }
 
 void drawObjects(win *mw, txt *ot)
 {
-	mw->window.clear(sf::Color(127, 127, 127));
-
-	mw->window.draw(mw->bg);	// black background
+	//mw->window.clear(sf::Color::Black);
+	mw->window.draw(mw->bg);	// background
 
 	mw->window.draw(mw->currentSP);	// stack indicator
 	mw->window.draw(ot->stack_vals); // stack values
@@ -347,6 +346,10 @@ void drawObjects(win *mw, txt *ot)
 	mw->window.draw(ot->reg_title); // registers names
 	for(int i = 0; i < 16; i++)
 		mw->window.draw(ot->reg_vals[i]);
+
+	mw->window.draw(ot->key_title); // registers names
+	for(int i = 0; i < 16; i++)
+		mw->window.draw(ot->key_vals[i]);
 
 	// other pseudo registers
 	mw->window.draw(ot->I);
@@ -356,16 +359,355 @@ void drawObjects(win *mw, txt *ot)
 	mw->window.draw(ot->PC);
 	
 	// actual chip-8 display
-	for(int i = 0; i < 64*32; i++)
-		mw->window.draw(mw->pixel[i]);
+	//for(int i = 0; i < 64*32; i++)
+	//	mw->window.draw(mw->pixel[i]);
 }
 
-template <typename T> 
-std::string coorString(sf::Vector2<T> v)
+void decrementCounters(cpu *m)
 {
-	std::stringstream s;
-	s << v.x << " " << v.y;
-	return s.str();
+	struct timespec ts;
+	ts.tv_sec = 16.6666/1000;
+	ts.tv_nsec = 16.6666 * 1000000;
+
+	while(1)
+	{
+		if(m->DT > 0) m->DT--;
+		if(m->ST > 0) m->ST--;
+
+		nanosleep(&ts, &ts);
+	}
+}
+
+void fdeCycle(win *mw, cpu *m)
+{
+	opcode op;
+	op.opcode = (m->mem[m->PC] << 8) | (m->mem[m->PC+1]);
+	int OSP;
+
+	switch(op.b.l)
+	{
+		case 0x0:
+			switch(op.b.r)
+			{
+				case 0x0:	// clear display
+					for(int j = 0; j < 32; j++)
+						for(int i = 0; i < 64; i++)
+							m->display[i][j] = 0;
+					break;
+				case 0xe:	// return from subroutine
+					m->PC = m->stack[m->SP];
+
+					OSP = m->SP;
+					m->SP--;
+					if(OSP == 0x00 && m->SP == 0xff)
+						m->SP = 15;  // set to 0 to disable loopback
+					break;
+			}
+			break;
+		case 0x1:			// jump to nnn (subtract 2 for alignment)
+			m->PC = op.nnn - 2;
+			break;
+		case 0x2:			// call subroutine at nnn
+			OSP = m->SP;
+			m->SP++;
+			if(OSP == 0x0f && m->SP == 0x10)
+				m->SP = 0;  // set to 15 to disable loopback
+			
+			m->stack[m->SP] = m->PC;
+			m->PC = op.nnn - 2;
+			break;
+		case 0x3:			// skip if equal
+			if(m->V[op.b.x] == op.kk)
+				m->PC += 2;
+			break;
+		case 0x4:			// skip if not equal
+			if(m->V[op.b.x] != op.kk)
+				m->PC += 2;
+			break;
+		case 0x5:			// skip if equal
+			if(m->V[op.b.x] == m->V[op.b.y])
+				m->PC += 2;
+			break;
+		case 0x6:			// move byte
+			m->V[op.b.x] = op.kk;
+			break;
+		case 0x7:			// add byte
+			m->V[op.b.x] += op.kk;
+			break;
+		case 0x8:
+			switch(op.b.r)
+			{
+				case 0x0:	// move register
+					m->V[op.b.x] = m->V[op.b.y];
+					break;
+				case 0x1:	// OR registers
+					m->V[op.b.x] |= m->V[op.b.y];
+					break;
+				case 0x2:	// AND registers
+					m->V[op.b.x] &= m->V[op.b.y];
+					break;
+				case 0x3:	// XOR registers
+					m->V[op.b.x] ^= m->V[op.b.y];
+					break;
+				case 0x4:	// add with carry
+					if(m->V[op.b.x] + m->V[op.b.y] > 255)
+						m->V[0xf] = 1;
+					else
+						m->V[0xf] = 0;
+					m->V[op.b.x] += m->V[op.b.y];
+					break;
+				case 0x5:	// sub NOT borrow
+					if(!(m->V[op.b.y] > m->V[op.b.x]))
+						m->V[0xf] = 1;
+					else
+						m->V[0xf] = 0;
+					m->V[op.b.x] -= m->V[op.b.y];
+					break;
+				case 0x6:	// shift right
+					if(m->V[op.b.x] | 0x01)
+						m->V[0xf] = 1;
+					else
+						m->V[0xf] = 0;
+					m->V[op.b.x] >>= 1;
+					break;
+				case 0x7:	// subn NOT borrow
+					if(!(m->V[op.b.x] > m->V[op.b.y]))
+						m->V[0xf] = 1;
+					else
+						m->V[0xf] = 0;
+					m->V[op.b.x] = m->V[op.b.y] - m->V[op.b.x];
+					break;
+				case 0xe:
+					if(m->V[op.b.x] | 0x80)
+						m->V[0xf] = 1;
+					else
+						m->V[0xf] = 0;
+					m->V[op.b.x] <<= 1;
+					break;
+			}
+			break;
+		case 0x9:			// skip if not equal
+			if(m->V[op.b.x] != m->V[op.b.y])
+				m->PC += 2;
+			break;
+		case 0xa:			// move byte to I
+			m->I = op.nnn;
+			break;
+		case 0xb:			// jump with offset
+			m->PC = op.nnn + m->V[0x0] - 2;
+			break;
+		case 0xc:			// random AND 
+			m->V[op.b.x] = (rand() % 256) & op.kk;
+			break;
+		case 0xd:			// display sprite
+			m->V[0xf] = 0;
+			for(int dy = m->V[op.b.y], sy = 0; sy < op.b.r; dy++, sy++)
+			{
+				if(dy >= 32)
+					dy -= 32;
+				uint8_t sprite_row = m->mem[m->I + sy];
+
+				for(int dx = m->V[op.b.x], sx = 7; sx >= 0; dx++, sx--)
+				{
+					if(dx >= 64)
+						dx -= 64;
+					uint8_t current_pixel = m->display[dx][dy];
+					uint8_t sprite_pixel = (sprite_row >> sx) & 0x1;
+					uint8_t px = sprite_pixel ^ current_pixel;
+
+					if(current_pixel && !px)
+						m->V[0xf] = 1;
+					
+					m->display[dx][dy] = px;
+					
+					if(px)
+						mw->pixel[dx+dy*64].setFillColor(sf::Color::White);
+					else
+						mw->pixel[dx+dy*64].setFillColor(sf::Color::Black);
+					mw->window.draw(mw->pixel[dx+dy*64]);
+				}
+			}
+			break;
+		case 0xe:
+			switch(op.kk)
+			{
+				case 0x9e:	// skip if key is pressed
+					if(m->K[m->V[op.b.x]])
+						m->PC += 2;
+					break;
+				case 0xa1:	// skip if key is not pressed
+					if(!m->K[m->V[op.b.x]])
+						m->PC += 2;
+					break;
+			}
+			break;
+		case 0xf:
+			switch(op.kk)
+			{
+				case 0x07:
+					m->V[op.b.x] = m->DT;
+					break;
+				case 0x0a:
+					{
+						uint8_t CK[16];
+						for(int i = 0; i < 16; i++)
+							CK[i] = m->K[i];
+						bool done = false;
+						while(!done)
+						{
+							pollEvents(mw, m);
+							for(int i = 0; i < 16; i++)
+							{
+								if(CK[i] != m->K[i])
+								{
+									m->V[op.b.x] = i;
+									done = true;
+									break;
+								}
+							}
+						}
+					}
+					break;
+				case 0x15:
+					m->DT = m->V[op.b.x];
+					break;
+				case 0x18:
+					m->ST = m->V[op.b.x];
+					break;
+				case 0x1e:
+					m->I += m->V[op.b.x];
+					break;
+				case 0x29:
+					m->I = m->V[op.b.x]*5;
+					break;
+				case 0x33:
+					m->mem[m->I] = m->V[op.b.x] / 100;
+					m->mem[m->I + 1] = (m->V[op.b.x] - m->mem[m->I]*100) / 10;
+					m->mem[m->I + 2] = m->V[op.b.x] - (m->V[op.b.x] / 10 * 10);
+					break;
+				case 0x55:
+					for(int i = 0; i < op.b.x; i++)
+						m->mem[m->I + i] = m->V[i];
+					break;
+				case 0x65:
+					for(int i = 0; i < op.b.x; i++)
+						m->V[i] = m->mem[m->I + i];
+					break;
+			}
+			break;
+	}
+
+	m->PC += 2;
+}
+
+void init(cpu *m, win *mw, txt *ot)
+{
+	////	CPU init
+	uint16_t font[80] =
+	{
+		0xf0, 0x90, 0x90, 0x90, 0xf0,
+		0x20, 0x60, 0x20, 0x20, 0x70,
+		0xf0, 0x10, 0xf0, 0x80, 0xf0,
+		0xf0, 0x10, 0xf0, 0x10, 0xf0,
+		0x90, 0x90, 0xf0, 0x10, 0x10,
+		0xf0, 0x80, 0xf0, 0x10, 0xf0,
+		0xf0, 0x80, 0xf0, 0x90, 0xf0,
+		0xf0, 0x10, 0x20, 0x40, 0x40,
+		0xf0, 0x90, 0xf0, 0x90, 0xf0,
+		0xf0, 0x90, 0xf0, 0x10, 0xf0,
+		0xf0, 0x90, 0xf0, 0x90, 0x90,
+		0xe0, 0x90, 0xe0, 0x90, 0xe0,
+		0xf0, 0x80, 0x80, 0x80, 0xf0,
+		0xe0, 0x90, 0x90, 0x90, 0xe0,
+		0xf0, 0x80, 0xf0, 0x80, 0xf0,
+		0xf0, 0x80, 0xf0, 0x80, 0x80
+	};
+
+	for(int i = 0; i < 16; i++)
+		m->V[i] = 0;
+	
+	for(int i = 80; i < 4096; i++)
+		m->mem[i] = 0;
+
+	for(int i = 0; i < 80; i++)
+		m->mem[i] = font[i];
+
+	m->PC = 512;
+	m->I = 0;
+
+	for(int i = 0; i < 16; i++)
+	{
+		m->stack[i] = 0;
+		m->K[i] = 0;
+	}
+
+	m->SP = 0;
+
+	m->DT = 0;
+	m->ST = 0;
+
+	for(int j = 0; j < 32; j++)
+		for(int i = 0; i < 64; i++)
+			m->display[i][j] = 0;
+
+	////	Window init
+	mw->window.create(sf::VideoMode(640, 640), "CHIP-8", sf::Style::Close);
+	//mw->window.setFramerateLimit(500);
+
+	mw->bg = sf::RectangleShape(sf::Vector2f(640, 320));
+	mw->bg.setFillColor(sf::Color(127, 127, 127));
+	mw->bg.setPosition(sf::Vector2f(0,320));
+	
+	mw->currentSP = sf::RectangleShape(sf::Vector2f(61, 18));
+	mw->currentSP.setFillColor(sf::Color(53, 81, 117));
+
+	for(int i = 0; i < 64*32; i++)
+		mw->pixel[i] = sf::RectangleShape(sf::Vector2f(10, 10));
+
+	for(int j = 0; j < 32; j++)
+	{
+		for(int i = 0; i < 64; i++)
+		{
+			mw->pixel[i+j*64].setPosition(sf::Vector2f(i*10, j*10));
+			mw->pixel[i+j*64].setFillColor(sf::Color::Black);
+		}
+	}
+
+	////	Textual objects init
+	ot->fnt.loadFromFile("font.ttf");
+	ot->stack_vals = sf::Text("", ot->fnt, 18);
+	ot->reg_title = sf::Text("V0\tV1\tV2\tV3\tV4\tV5\n\n\n\nV6\tV7\tV8\tV9\tVA\tVB\n\n\n\nVC\tVD\tVE\tVF\n\n\n\nI\t   DT\tST\tSP\tPC", ot->fnt, 20);
+	ot->key_title = sf::Text("K0\tK1\tK2\tK3\tK4\tK5\n\n\n\nK6\tK7\tK8\tK9\tKA\tKB\n\n\n\nKC\tKD\tKE\tKF", ot->fnt, 20);
+	ot-> I = sf::Text("", ot->fnt, 20);
+	ot-> ST = sf::Text("", ot->fnt, 20);
+	ot->DT = sf::Text("", ot->fnt, 20);
+	ot->SP = sf::Text("", ot->fnt, 20);
+	ot->PC = sf::Text("", ot->fnt, 20);
+	ot->stack_vals.setPosition(sf::Vector2f(550, 332));
+	ot->reg_title.setPosition(sf::Vector2f(300, 332));
+	ot->key_title.setPosition(sf::Vector2f(40, 332));
+	for(int i = 0; i < 16; i++)
+		ot->reg_vals[i] = sf::Text("", ot->fnt, 20);
+	for(int i = 0; i < 16; i++)
+		ot->key_vals[i] = sf::Text("", ot->fnt, 20);
+
+
+	////	General
+	sf::err().rdbuf(NULL);
+	std::srand(std::time(NULL));
+}
+
+void fdeCycleThread(win* mw, cpu *m)
+{
+	struct timespec ts;
+	ts.tv_sec = 0.02;
+	ts.tv_nsec = 0.02 * 1000000;
+
+	while(1)
+	{
+		fdeCycle(mw, m);
+		nanosleep(&ts, &ts);
+	}
 }
 
 ////	main
@@ -374,26 +716,25 @@ int main(int argc, char **argv)
 	cpu m;
 	win mw;
 	txt ot;
-	
+
 	init(&m, &mw, &ot);
+	std::thread decrementers(decrementCounters, &m);
+	//std::thread fde(fdeCycleThread, &mw, &m);
 
 	if(argc > 1)
 		openRom(&m, argv[1]);
 
+	mw.window.clear(sf::Color::Black);
+
 	////	game loop
 	while(mw.window.isOpen())
 	{
-		////	poll events
 		pollEvents(&mw, &m);		
-
-		////	update
 		updateObjects(&m, &mw, &ot);
-
-		//// draw to screen
 		drawObjects(&mw, &ot);
-
-		//// render
+		fdeCycle(&mw, &m);
 		mw.window.display();
 	}
+
 	return 0;
 }
