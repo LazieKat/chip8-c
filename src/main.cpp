@@ -53,6 +53,7 @@ typedef struct
 {
 	sf::RenderWindow window;
 	sf::RectangleShape bg;
+	sf::RectangleShape bs;
 	sf::RectangleShape currentSP;
 	sf::RectangleShape pixel[64*32];
 }win;
@@ -75,6 +76,10 @@ typedef struct
 
 //sf::Vector2i px(32, 16);
 
+////	declearations
+
+void init(win *mw, cpu *m, txt *ot, char *file);
+
 ////	functions
 
 void openRom(cpu *m, char *p)
@@ -91,7 +96,7 @@ void openRom(cpu *m, char *p)
 	fclose(f);
 }
 
-void pollEvents(win *mw, cpu *m)
+void pollEvents(win *mw, cpu *m, txt *ot = NULL, char *fn = NULL)
 {
 	sf::Event evt;
 	while(mw->window.pollEvent(evt))
@@ -105,68 +110,55 @@ void pollEvents(win *mw, cpu *m)
 				switch(evt.key.code)
 				{
 					case sf::Keyboard::Num1:
-						std::cout << "1" << std::endl;
 						m->K[1] = 1;
 						break;
 					case sf::Keyboard::Num2:
-						std::cout << "2" << std::endl;
 						m->K[2] = 1;
 						break;
 					case sf::Keyboard::Num3:
-						std::cout << "3" << std::endl;
 						m->K[3] = 1;
 						break;
 					case sf::Keyboard::Num4:
-						std::cout << "C" << std::endl;
 						m->K[0xc] = 1;
 						break;
 					case sf::Keyboard::Q:
-						std::cout << "4" << std::endl;
 						m->K[4] = 1;
 						break;
 					case sf::Keyboard::W:
-						std::cout << "5" << std::endl;
 						m->K[5] = 1;
 						break;
 					case sf::Keyboard::E:
-						std::cout << "6" << std::endl;
 						m->K[6] = 1;
 						break;
 					case sf::Keyboard::R:
-						std::cout << "D" << std::endl;
 						m->K[0xd] = 1;
 						break;
 					case sf::Keyboard::A:
-						std::cout << "7" << std::endl;
 						m->K[7] = 1;
 						break;
 					case sf::Keyboard::S:
-						std::cout << "8" << std::endl;
 						m->K[8] = 1;
 						break;
 					case sf::Keyboard::D:
-						std::cout << "9" << std::endl;
 						m->K[9] = 1;
 						break;
 					case sf::Keyboard::F:
-						std::cout << "E" << std::endl;
 						m->K[0xe] = 1;
 						break;
 					case sf::Keyboard::Z:
-						std::cout << "A" << std::endl;
 						m->K[0xa] = 1;
 						break;
 					case sf::Keyboard::X:
-						std::cout << "0" << std::endl;
 						m->K[0] = 1;
 						break;
 					case sf::Keyboard::C:
-						std::cout << "B" << std::endl;
 						m->K[0xb] = 1;
 						break;
 					case sf::Keyboard::V:
-						std::cout << "F" << std::endl;
 						m->K[0xf] = 1;
+						break;
+					case sf::Keyboard::Backspace:
+						init(mw, m, ot, fn);
 						break;
 				}
 				break;
@@ -174,67 +166,51 @@ void pollEvents(win *mw, cpu *m)
 				switch(evt.key.code)
 				{
 					case sf::Keyboard::Num1:
-						std::cout << "1" << std::endl;
 						m->K[1] = 0;
 						break;
 					case sf::Keyboard::Num2:
-						std::cout << "2" << std::endl;
 						m->K[2] = 0;
 						break;
 					case sf::Keyboard::Num3:
-						std::cout << "3" << std::endl;
 						m->K[3] = 0;
 						break;
 					case sf::Keyboard::Num4:
-						std::cout << "C" << std::endl;
 						m->K[0xc] = 0;
 						break;
 					case sf::Keyboard::Q:
-						std::cout << "4" << std::endl;
 						m->K[4] = 0;
 						break;
 					case sf::Keyboard::W:
-						std::cout << "5" << std::endl;
 						m->K[5] = 0;
 						break;
 					case sf::Keyboard::E:
-						std::cout << "6" << std::endl;
 						m->K[6] = 0;
 						break;
 					case sf::Keyboard::R:
-						std::cout << "D" << std::endl;
 						m->K[0xd] = 0;
 						break;
 					case sf::Keyboard::A:
-						std::cout << "7" << std::endl;
 						m->K[7] = 0;
 						break;
 					case sf::Keyboard::S:
-						std::cout << "8" << std::endl;
 						m->K[8] = 0;
 						break;
 					case sf::Keyboard::D:
-						std::cout << "9" << std::endl;
 						m->K[9] = 0;
 						break;
 					case sf::Keyboard::F:
-						std::cout << "E" << std::endl;
 						m->K[0xe] = 0;
 						break;
 					case sf::Keyboard::Z:
-						std::cout << "A" << std::endl;
 						m->K[0xa] = 0;
 						break;
 					case sf::Keyboard::X:
-						std::cout << "0" << std::endl;
 						m->K[0] = 0;
 						break;
 					case sf::Keyboard::C:
-						std::cout << "B" << std::endl;
 						m->K[0xb] = 0;
 						break;
 					case sf::Keyboard::V:
-						std::cout << "F" << std::endl;
 						m->K[0xf] = 0;
 						break;
 				}
@@ -263,7 +239,7 @@ std::string intToHex(uint64_t i, bool p=true)
 	return stream.str();
 }
 
-void updateObjects(cpu *m, win *mw, txt *ot)
+void updateObjects(win *mw, cpu *m, txt *ot)
 {
 	// stack values
 	ot->sv.str("");
@@ -272,7 +248,7 @@ void updateObjects(cpu *m, win *mw, txt *ot)
 	ot->stack_vals.setString(ot->sv.str());
 	mw->currentSP.setPosition(sf::Vector2f(546, 336+18*abs(m->SP-15)));
 
-	// registers values
+	// registers and key values
 	for(int j = 0; j < 3; j++)
 	{
 		for(int i = 0; i < 6; i++)
@@ -281,75 +257,42 @@ void updateObjects(cpu *m, win *mw, txt *ot)
 				break;
 
 			ot->reg_vals[i+j*6].setString(intToHex(m->V[i+j*6], false));
-			ot->reg_vals[i+j*6].setPosition(sf::Vector2f(300+i*40, 360+j*78));
-		}
-	}
-
-	// key values
-	for(int j = 0; j < 3; j++)
-	{
-		for(int i = 0; i < 6; i++)
-		{
-			if(j == 2 && i > 3) 
-				break;
-
 			ot->key_vals[i+j*6].setString(intToHex(m->K[i+j*6], false));
-			ot->key_vals[i+j*6].setPosition(sf::Vector2f(40+i*40, 360+j*78));
 		}
 	}
 
 	// index register
 	ot->I.setString(intToHex(m->I, false));
-	ot->I.setPosition(sf::Vector2f(300 , 594));
 
 	// sound timer
-	//ot->ST.setString(intToHex(m->ST, false));
 	ot->ST.setString(std::to_string(m->ST));
-	ot->ST.setPosition(sf::Vector2f(340 ,594));
 
 	// delay timer
-	//ot->DT.setString(intToHex(m->DT, false));
 	ot->DT.setString(std::to_string(m->DT));
-	ot->DT.setPosition(sf::Vector2f(380 ,594));
 
 	// stack pointer
 	ot->SP.setString(intToHex(m->SP, false));
-	ot->SP.setPosition(sf::Vector2f(420 ,594));
 
 	// program counter
 	ot->PC.setString(intToHex(m->PC, false));
-	ot->PC.setPosition(sf::Vector2f(460 ,594));
-
-	// actual chip-8 display
-	/*
-	for(int j = 0; j < 32; j++)
-	{
-		for(int i = 0; i < 64; i++)
-		{
-			if(m->display[i][j])
-				mw->pixel[i+j*64].setFillColor(sf::Color::White);
-			else
-				mw->pixel[i+j*64].setFillColor(sf::Color::Black);
-		}
-	}
-	*/
 }
 
 void drawObjects(win *mw, txt *ot)
 {
 	//mw->window.clear(sf::Color::Black);
 	mw->window.draw(mw->bg);	// background
+	mw->window.draw(mw->bs);	// background
 
 	mw->window.draw(mw->currentSP);	// stack indicator
 	mw->window.draw(ot->stack_vals); // stack values
 
 	mw->window.draw(ot->reg_title); // registers names
-	for(int i = 0; i < 16; i++)
-		mw->window.draw(ot->reg_vals[i]);
-
 	mw->window.draw(ot->key_title); // registers names
 	for(int i = 0; i < 16; i++)
+	{
+		mw->window.draw(ot->reg_vals[i]);
 		mw->window.draw(ot->key_vals[i]);
+	}
 
 	// other pseudo registers
 	mw->window.draw(ot->I);
@@ -359,8 +302,9 @@ void drawObjects(win *mw, txt *ot)
 	mw->window.draw(ot->PC);
 	
 	// actual chip-8 display
-	//for(int i = 0; i < 64*32; i++)
-	//	mw->window.draw(mw->pixel[i]);
+	for(int i = 0; i < 64*32; i++)
+		if(mw->pixel[i].getFillColor() == sf::Color::White)
+			mw->window.draw(mw->pixel[i]);
 }
 
 void decrementCounters(cpu *m)
@@ -524,7 +468,7 @@ void fdeCycle(win *mw, cpu *m)
 						mw->pixel[dx+dy*64].setFillColor(sf::Color::White);
 					else
 						mw->pixel[dx+dy*64].setFillColor(sf::Color::Black);
-					mw->window.draw(mw->pixel[dx+dy*64]);
+					//mw->window.draw(mw->pixel[dx+dy*64]);
 				}
 			}
 			break;
@@ -600,7 +544,7 @@ void fdeCycle(win *mw, cpu *m)
 	m->PC += 2;
 }
 
-void init(cpu *m, win *mw, txt *ot)
+void init(win *mw, cpu *m, txt *ot, char *file = NULL)
 {
 	////	CPU init
 	uint16_t font[80] =
@@ -657,6 +601,10 @@ void init(cpu *m, win *mw, txt *ot)
 	mw->bg = sf::RectangleShape(sf::Vector2f(640, 320));
 	mw->bg.setFillColor(sf::Color(127, 127, 127));
 	mw->bg.setPosition(sf::Vector2f(0,320));
+
+	mw->bs = sf::RectangleShape(sf::Vector2f(640, 320));
+	mw->bs.setFillColor(sf::Color::Black);
+	mw->bs.setPosition(sf::Vector2f(0,0));
 	
 	mw->currentSP = sf::RectangleShape(sf::Vector2f(61, 18));
 	mw->currentSP.setFillColor(sf::Color(53, 81, 117));
@@ -674,7 +622,7 @@ void init(cpu *m, win *mw, txt *ot)
 	}
 
 	////	Textual objects init
-	ot->fnt.loadFromFile("font.ttf");
+	ot->fnt.loadFromFile("C:/Users/ahmad/OneDrive/Documents/GitHub/chip8-c/src/font.ttf");
 	ot->stack_vals = sf::Text("", ot->fnt, 18);
 	ot->reg_title = sf::Text("V0\tV1\tV2\tV3\tV4\tV5\n\n\n\nV6\tV7\tV8\tV9\tVA\tVB\n\n\n\nVC\tVD\tVE\tVF\n\n\n\nI\t   DT\tST\tSP\tPC", ot->fnt, 20);
 	ot->key_title = sf::Text("K0\tK1\tK2\tK3\tK4\tK5\n\n\n\nK6\tK7\tK8\tK9\tKA\tKB\n\n\n\nKC\tKD\tKE\tKF", ot->fnt, 20);
@@ -686,28 +634,34 @@ void init(cpu *m, win *mw, txt *ot)
 	ot->stack_vals.setPosition(sf::Vector2f(550, 332));
 	ot->reg_title.setPosition(sf::Vector2f(300, 332));
 	ot->key_title.setPosition(sf::Vector2f(40, 332));
+	ot->PC.setPosition(sf::Vector2f(460 ,594));
+	ot->SP.setPosition(sf::Vector2f(420 ,594));
+	ot->DT.setPosition(sf::Vector2f(380 ,594));
+	ot->ST.setPosition(sf::Vector2f(340 ,594));
+	ot->I.setPosition(sf::Vector2f(300 , 594));
 	for(int i = 0; i < 16; i++)
+	{
 		ot->reg_vals[i] = sf::Text("", ot->fnt, 20);
-	for(int i = 0; i < 16; i++)
 		ot->key_vals[i] = sf::Text("", ot->fnt, 20);
+	}
 
+	for(int j = 0; j < 3; j++)
+	{
+		for(int i = 0; i < 6; i++)
+		{
+			if(j == 2 && i > 3) 
+				break;
+			ot->reg_vals[i+j*6].setPosition(sf::Vector2f(300+i*40, 360+j*78));
+			ot->key_vals[i+j*6].setPosition(sf::Vector2f(40+i*40, 360+j*78));
+		}
+	}
 
 	////	General
 	sf::err().rdbuf(NULL);
 	std::srand(std::time(NULL));
-}
 
-void fdeCycleThread(win* mw, cpu *m)
-{
-	struct timespec ts;
-	ts.tv_sec = 0.02;
-	ts.tv_nsec = 0.02 * 1000000;
-
-	while(1)
-	{
-		fdeCycle(mw, m);
-		nanosleep(&ts, &ts);
-	}
+	if(file != NULL)
+		openRom(m, file);
 }
 
 ////	main
@@ -716,24 +670,35 @@ int main(int argc, char **argv)
 	cpu m;
 	win mw;
 	txt ot;
+	std::string zz;
 
-	init(&m, &mw, &ot);
-	std::thread decrementers(decrementCounters, &m);
-	//std::thread fde(fdeCycleThread, &mw, &m);
+	char *fn;
 
 	if(argc > 1)
-		openRom(&m, argv[1]);
+		fn = argv[1];
+	else
+		fn = NULL;
 
-	mw.window.clear(sf::Color::Black);
+	init(&mw, &m, &ot, fn);
+	std::thread decrementers(decrementCounters, &m);
+
+	struct timespec ts;
+	ts.tv_sec = 0.001;
+	ts.tv_nsec = 0.001 * 1000000000;
 
 	////	game loop
 	while(mw.window.isOpen())
 	{
-		pollEvents(&mw, &m);		
-		updateObjects(&m, &mw, &ot);
-		drawObjects(&mw, &ot);
+		if(argc == 3)
+			getline(std::cin, zz);
+
 		fdeCycle(&mw, &m);
+		pollEvents(&mw, &m, &ot, fn);
+		updateObjects(&mw, &m, &ot);
+		drawObjects(&mw, &ot);
 		mw.window.display();
+
+		nanosleep(&ts, &ts);
 	}
 
 	return 0;
