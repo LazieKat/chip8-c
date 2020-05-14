@@ -241,25 +241,17 @@ std::string intToHex(uint64_t i, bool p=true)
 
 void updateObjects(win *mw, cpu *m, txt *ot)
 {
-	// stack values
+	// registers, stack, and key values
 	ot->sv.str("");
-	for(int i = 15; i >= 0; i--)
-		ot->sv << intToHex(m->stack[i]) << "\n";
-	ot->stack_vals.setString(ot->sv.str());
-	mw->currentSP.setPosition(sf::Vector2f(546, 336+18*abs(m->SP-15)));
-
-	// registers and key values
-	for(int j = 0; j < 3; j++)
+	for(int i = 0; i < 16; i++)
 	{
-		for(int i = 0; i < 6; i++)
-		{
-			if(j == 2 && i > 3) 
-				break;
-
-			ot->reg_vals[i+j*6].setString(intToHex(m->V[i+j*6], false));
-			ot->key_vals[i+j*6].setString(intToHex(m->K[i+j*6], false));
-		}
+		ot->sv << intToHex(m->stack[i]) << "\n";
+		ot->reg_vals[i].setString(intToHex(m->V[i], false));
+		ot->key_vals[i].setString(intToHex(m->K[i], false));
 	}
+
+	ot->stack_vals.setString(ot->sv.str());
+	mw->currentSP.setPosition(sf::Vector2f(546, 336+18*m->SP));
 
 	// index register
 	ot->I.setString(intToHex(m->I, false));
@@ -280,19 +272,14 @@ void updateObjects(win *mw, cpu *m, txt *ot)
 void drawObjects(win *mw, txt *ot)
 {
 	//mw->window.clear(sf::Color::Black);
-	mw->window.draw(mw->bg);	// background
-	mw->window.draw(mw->bs);	// background
+	mw->window.draw(mw->bg);		// background
+	mw->window.draw(mw->bs);		// background
 
 	mw->window.draw(mw->currentSP);	// stack indicator
-	mw->window.draw(ot->stack_vals); // stack values
+	mw->window.draw(ot->stack_vals);// stack values
 
-	mw->window.draw(ot->reg_title); // registers names
-	mw->window.draw(ot->key_title); // registers names
-	for(int i = 0; i < 16; i++)
-	{
-		mw->window.draw(ot->reg_vals[i]);
-		mw->window.draw(ot->key_vals[i]);
-	}
+	mw->window.draw(ot->reg_title);	// registers names
+	mw->window.draw(ot->key_title);	// registers names
 
 	// other pseudo registers
 	mw->window.draw(ot->I);
@@ -303,8 +290,16 @@ void drawObjects(win *mw, txt *ot)
 	
 	// actual chip-8 display
 	for(int i = 0; i < 64*32; i++)
+	{
+		if(i < 16)	// register and key values, use the same for loop for optimization
+		{
+			mw->window.draw(ot->reg_vals[i]);
+			mw->window.draw(ot->key_vals[i]);
+		}
+
 		if(mw->pixel[i].getFillColor() == sf::Color::White)
 			mw->window.draw(mw->pixel[i]);
+	}
 }
 
 void decrementCounters(cpu *m)
@@ -334,17 +329,21 @@ void fdeCycle(win *mw, cpu *m)
 			switch(op.b.r)
 			{
 				case 0x0:	// clear display
+					memset(m->display, 0, 64*32*sizeof(uint8_t));
+					/*
 					for(int j = 0; j < 32; j++)
 						for(int i = 0; i < 64; i++)
 							m->display[i][j] = 0;
+					*/
 					break;
 				case 0xe:	// return from subroutine
 					m->PC = m->stack[m->SP];
+					m->stack[m->SP] = 0;
 
-					OSP = m->SP;
+					//OSP = m->SP;
 					m->SP--;
-					if(OSP == 0x00 && m->SP == 0xff)
-						m->SP = 15;  // set to 0 to disable loopback
+					//if(OSP == 0x00 && m->SP == 0xff)
+					//	m->SP = 15;  // set to 0 to disable loopback
 					break;
 			}
 			break;
@@ -352,10 +351,10 @@ void fdeCycle(win *mw, cpu *m)
 			m->PC = op.nnn - 2;
 			break;
 		case 0x2:			// call subroutine at nnn
-			OSP = m->SP;
+			//OSP = m->SP;
 			m->SP++;
-			if(OSP == 0x0f && m->SP == 0x10)
-				m->SP = 0;  // set to 15 to disable loopback
+			//if(OSP == 0x0f && m->SP == 0x10)
+			//	m->SP = 0;  // set to 15 to disable loopback
 			
 			m->stack[m->SP] = m->PC;
 			m->PC = op.nnn - 2;
@@ -408,7 +407,7 @@ void fdeCycle(win *mw, cpu *m)
 					m->V[op.b.x] -= m->V[op.b.y];
 					break;
 				case 0x6:	// shift right
-					if(m->V[op.b.x] | 0x01)
+					if(m->V[op.b.x] & 0x01)
 						m->V[0xf] = 1;
 					else
 						m->V[0xf] = 0;
@@ -422,7 +421,7 @@ void fdeCycle(win *mw, cpu *m)
 					m->V[op.b.x] = m->V[op.b.y] - m->V[op.b.x];
 					break;
 				case 0xe:
-					if(m->V[op.b.x] | 0x80)
+					if(m->V[op.b.x] & 0x80)
 						m->V[0xf] = 1;
 					else
 						m->V[0xf] = 0;
@@ -445,6 +444,7 @@ void fdeCycle(win *mw, cpu *m)
 			break;
 		case 0xd:			// display sprite
 			m->V[0xf] = 0;
+
 			for(int dy = m->V[op.b.y], sy = 0; sy < op.b.r; dy++, sy++)
 			{
 				if(dy >= 32)
@@ -567,32 +567,36 @@ void init(win *mw, cpu *m, txt *ot, char *file = NULL)
 		0xf0, 0x80, 0xf0, 0x80, 0x80
 	};
 
-	for(int i = 0; i < 16; i++)
-		m->V[i] = 0;
 	
 	for(int i = 80; i < 4096; i++)
 		m->mem[i] = 0;
 
 	for(int i = 0; i < 80; i++)
+	{
+		if(i < 16)
+		{
+			m->V[i] = 0;
+			m->stack[i] = 0;
+			m->K[i] = 0;
+		}
+
 		m->mem[i] = font[i];
+	}
 
 	m->PC = 512;
 	m->I = 0;
-
-	for(int i = 0; i < 16; i++)
-	{
-		m->stack[i] = 0;
-		m->K[i] = 0;
-	}
 
 	m->SP = 0;
 
 	m->DT = 0;
 	m->ST = 0;
 
+	memset(m->display, 0, 64*32*sizeof(uint8_t));
+	/*
 	for(int j = 0; j < 32; j++)
 		for(int i = 0; i < 64; i++)
 			m->display[i][j] = 0;
+	*/
 
 	////	Window init
 	mw->window.create(sf::VideoMode(640, 640), "CHIP-8", sf::Style::Close);
@@ -609,13 +613,11 @@ void init(win *mw, cpu *m, txt *ot, char *file = NULL)
 	mw->currentSP = sf::RectangleShape(sf::Vector2f(61, 18));
 	mw->currentSP.setFillColor(sf::Color(53, 81, 117));
 
-	for(int i = 0; i < 64*32; i++)
-		mw->pixel[i] = sf::RectangleShape(sf::Vector2f(10, 10));
-
 	for(int j = 0; j < 32; j++)
 	{
 		for(int i = 0; i < 64; i++)
 		{
+			mw->pixel[i+j*64] = sf::RectangleShape(sf::Vector2f(10, 10));
 			mw->pixel[i+j*64].setPosition(sf::Vector2f(i*10, j*10));
 			mw->pixel[i+j*64].setFillColor(sf::Color::Black);
 		}
@@ -698,7 +700,7 @@ int main(int argc, char **argv)
 		drawObjects(&mw, &ot);
 		mw.window.display();
 
-		nanosleep(&ts, &ts);
+		//nanosleep(&ts, &ts);
 	}
 
 	return 0;
