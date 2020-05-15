@@ -20,5 +20,7 @@ Currently the display is just writing spaces in the terminal with VT-100
 escapes. I wanted to use SFML but I haven't used it with C before and 
 I'm having some issues with using _objects_ out of their scope (by passing
 pointers), it just crashes even if the _object_ was moved from main to
-global scope, kinda weird... I used SFML ince before in a C++ environemnt
+global scope, kinda weird... I used SFML before in a C++ environemnt
 but I wanna keep this project pure C cuz that's how real men code!
+
+Never mind I used it after all!
